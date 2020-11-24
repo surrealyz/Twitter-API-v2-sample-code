@@ -1,6 +1,7 @@
 import requests
 import os
 import json
+import time
 
 # To set your enviornment variables in your terminal run the following line:
 # export 'BEARER_TOKEN'='<your_bearer_token>'
@@ -10,11 +11,11 @@ def auth():
     return os.environ.get("BEARER_TOKEN")
 
 
-def create_url():
+def create_url(names_list):
     # Specify the usernames that you want to lookup below
     # You can enter up to 100 comma-separated values.
-    usernames = "usernames=TwitterDev,TwitterAPI"
-    user_fields = "user.fields=description,created_at"
+    usernames = "usernames=%s" % names_list
+    user_fields = "user.fields=created_at,description,entities,id,location,name,pinned_tweet_id,profile_image_url,protected,public_metrics,url,username,verified,withheld"
     # User fields are adjustable, options include:
     # created_at, description, entities, id, location, name,
     # pinned_tweet_id, profile_image_url, protected,
@@ -42,11 +43,30 @@ def connect_to_endpoint(url, headers):
 
 def main():
     bearer_token = auth()
-    url = create_url()
-    headers = create_headers(bearer_token)
-    json_response = connect_to_endpoint(url, headers)
-    print(json.dumps(json_response, indent=4, sort_keys=True))
-
+    fout = open('users_info.txt', 'a')
+    start = time.time()
+    with open('users_list.txt', 'r') as f:
+        lno = 0
+        names_list = []
+        for line in f:
+            name = str(line.rstrip())
+            names_list.append(name)
+            lno += 1
+            if lno % 100 == 0 or lno == 968345:
+                # get names_list by 100 batches
+                url = create_url(','.join(names_list))
+                headers = create_headers(bearer_token)
+                json_response = connect_to_endpoint(url, headers)
+                fout.write(json.dumps(json_response))
+                fout.write('\n')
+                fout.flush()
+                names_list = []
+                elapsed = time.time() - start
+                sleep_time = 3.-elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                start = time.time()
+    fout.close()
 
 if __name__ == "__main__":
     main()
